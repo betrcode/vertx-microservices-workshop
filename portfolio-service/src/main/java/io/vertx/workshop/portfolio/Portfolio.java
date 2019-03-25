@@ -3,6 +3,8 @@ package io.vertx.workshop.portfolio;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 
+import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 

@@ -1,10 +1,12 @@
 package io.vertx.workshop.trader.impl;
 
 import io.vertx.core.json.JsonObject;
+import io.vertx.workshop.portfolio.Portfolio;
 import io.vertx.workshop.portfolio.PortfolioService;
 
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A small utility class to initialize the compulsive traders and implement the stupid trading logic.
@@ -53,6 +55,44 @@ public class TraderUtils {
         });
       }
     }
+  }
+
+  public static void smarterTradingLogic(String company, int numberOfShares, PortfolioService portfolio, JsonObject quote) {
+    // Decide if we should buy or sell for this company
+
+    AtomicReference<Portfolio> actualPortfolio = new AtomicReference<>();
+    // Get the portfolio
+    portfolio.getPortfolio(ar -> {
+      if (ar.succeeded()) {
+        actualPortfolio.set(ar.result());
+      }
+    });
+
+    // Exploit error in pricing
+    final boolean pricingError = quote.getInteger("bid") > quote.getInteger("ask");
+
+    if (pricingError) {
+      portfolio.buy(numberOfShares, quote, p -> {
+        if (p.succeeded()) {
+          System.out.println("Exploited pricing and bought " + numberOfShares + " of " + company + " !");
+        } else {
+          System.out.println("Tried to exploit price but failed to buy " + numberOfShares + " of " + company + " : " + p.cause());
+        }
+      });
+    } else if (TraderUtils.timeToSell()) {
+      portfolio.sell(numberOfShares, quote, p -> {
+        if (p.succeeded()) {
+          System.out.println("Randomly sold " + numberOfShares + " of " + company + "!");
+        } else {
+          System.out.println("D'oh, failed to sell " + numberOfShares + " of " + company + " : " + p.cause());
+        }
+      });
+    } else {
+      System.out.println("Not a good time to trade.");
+      // do nothing
+    }
+
+
   }
 
   /**

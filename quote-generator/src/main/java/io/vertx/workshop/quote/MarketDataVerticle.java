@@ -39,6 +39,7 @@ public class MarketDataVerticle extends AbstractVerticle {
     // Every `period` ms, the given Handler is called.
     vertx.setPeriodic(period, l -> {
       compute();
+      System.out.println(this.toJson());
       send();
     });
   }
@@ -48,7 +49,7 @@ public class MarketDataVerticle extends AbstractVerticle {
    * @param config the configuration
    */
   void init(JsonObject config) {
-    period = config.getLong("period", 3000L);
+    period = config.getLong("period", 1000L);
     variation = config.getInteger("variation", 100);
     name = config.getString("name");
     Objects.requireNonNull(name);

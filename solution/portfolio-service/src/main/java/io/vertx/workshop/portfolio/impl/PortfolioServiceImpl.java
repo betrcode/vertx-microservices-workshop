@@ -130,6 +130,10 @@ public class PortfolioServiceImpl implements PortfolioService {
       int current = portfolio.getAmount(name);
       int newAmount = current + amount;
       portfolio.getShares().put(name, newAmount);
+
+      // Calculate new average cost
+
+
       sendActionOnTheEventBus("BUY", amount, quote, newAmount);
       resultHandler.handle(Future.succeededFuture(portfolio));
     } else {

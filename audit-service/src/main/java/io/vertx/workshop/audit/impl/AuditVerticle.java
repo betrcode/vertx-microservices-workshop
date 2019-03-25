@@ -5,6 +5,7 @@ import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.sql.UpdateResult;
+import io.vertx.rx.java.RxHelper;
 import io.vertx.rxjava.core.eventbus.MessageConsumer;
 import io.vertx.rxjava.core.http.HttpServer;
 import io.vertx.rxjava.ext.jdbc.JDBCClient;
@@ -45,9 +46,16 @@ public class AuditVerticle extends RxMicroServiceVerticle {
     // creates the jdbc client.
     jdbc = JDBCClient.createNonShared(vertx, config());
 
-    // TODO
     // ----
-    Single<MessageConsumer<JsonObject>> readySingle = Single.error(new UnsupportedOperationException("not yet implemented"));
+    Single<Void> databaseReady = initializeDatabase(config().getBoolean("drop", false));
+    Single<Void> httpEndpointReady = configureTheHTTPServer()
+        .flatMap(server -> rxPublishHttpEndpoint("audit", "localhost", server.actualPort()));
+    Single<MessageConsumer<JsonObject>> messageConsumerReady = retrieveThePortfolioMessageSource();
+    Single<MessageConsumer<JsonObject>> readySingle = Single.zip(
+        databaseReady,
+        httpEndpointReady,
+        messageConsumerReady,
+        (db, http, consumer) -> consumer);
     // ----
 
     readySingle.doOnSuccess(consumer -> {
@@ -76,20 +84,38 @@ public class AuditVerticle extends RxMicroServiceVerticle {
     // 4. close the connection
     // 5. return this list in the response
 
-    //TODO
     // ----
+    // 1 - we retrieve the connection
+    Single<List<JsonObject>> result = jdbc.rxGetConnection().flatMap(
+        conn -> conn
+            // 2. we execute the query
+            .rxQuery(SELECT_STATEMENT)
+            // 3. Build the list of operations
+            .map(set -> set.getRows()
+                .stream()
+                .map(json -> new JsonObject(json.getString("OPERATION")))
+                .collect(Collectors.toList()))
+            // 4. Close the connection
+            .doAfterTerminate(conn::close));
 
+    result.subscribe(operations -> {
+      // 5. Send the list to the response
+      context.response()
+          .setStatusCode(200)
+          .end(Json.encodePrettily(operations));
+    }, context::fail);
     // ----
   }
 
   private Single<HttpServer> configureTheHTTPServer() {
-
-    //TODO
     //----
-    Single<HttpServer> httpServerSingle = Single.error(new UnsupportedOperationException("not yet implemented"));
+    // Use a Vert.x Web router for this REST API.
+    Router router = Router.router(vertx);
+    router.get("/").handler(this::retrieveOperations);
+    HttpServer server = vertx.createHttpServer().requestHandler(router::accept);
+    Integer port = config().getInteger("http.port", 0);
+    return server.rxListen(port);
     //----
-
-    return httpServerSingle;
   }
 
   private Single<MessageConsumer<JsonObject>> retrieveThePortfolioMessageSource() {

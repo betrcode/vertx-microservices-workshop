@@ -13,10 +13,10 @@ public class MainVerticle extends AbstractVerticle {
   public void start() throws Exception {
 
     // Java traders
-    vertx.deployVerticle(JavaCompulsiveTraderVerticle.class.getName(), new DeploymentOptions().setInstances(2));
+    vertx.deployVerticle(JavaCompulsiveTraderVerticle.class.getName(), new DeploymentOptions().setInstances(10));
 
     // Groovy traders...
-    vertx.deployVerticle("GroovyCompulsiveTraderVerticle.groovy");
+    //vertx.deployVerticle("GroovyCompulsiveTraderVerticle.groovy");
 
   }
 }

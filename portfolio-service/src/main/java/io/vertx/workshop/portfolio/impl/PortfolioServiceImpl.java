@@ -2,16 +2,19 @@ package io.vertx.workshop.portfolio.impl;
 
 import io.vertx.core.*;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.ext.web.client.WebClient;
+import io.vertx.ext.web.codec.BodyCodec;
 import io.vertx.servicediscovery.ServiceDiscovery;
+import io.vertx.servicediscovery.types.HttpEndpoint;
 import io.vertx.workshop.portfolio.Portfolio;
 import io.vertx.workshop.portfolio.PortfolioService;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import io.vertx.ext.web.client.WebClient;
 
 /**
  * The portfolio service implementation.
@@ -30,25 +33,29 @@ public class PortfolioServiceImpl implements PortfolioService {
 
   @Override
   public void getPortfolio(Handler<AsyncResult<Portfolio>> resultHandler) {
-    // TODO
-    // ----
-
-    // ----
+    resultHandler.handle(Future.succeededFuture(portfolio));
   }
 
   private void sendActionOnTheEventBus(String action, int amount, JsonObject quote, int newAmount) {
-    // TODO
-    // ----
-
-    // ----
+    final JsonObject object = new JsonObject()
+        .put("action", action)
+        .put("quote", quote)
+        .put("date", Instant.now().toEpochMilli())
+        .put("amount", amount)
+        .put("owned", newAmount);
+    vertx.eventBus().send(EVENT_ADDRESS, object);
   }
 
   @Override
   public void evaluate(Handler<AsyncResult<Double>> resultHandler) {
-    // TODO
-    // ----
-
-    // ---
+    HttpEndpoint.getWebClient(discovery, new JsonObject().put("name", "quotes"),
+        client -> {
+          if (client.succeeded()) {
+            computeEvaluation(client.result(), resultHandler);
+          } else {
+            resultHandler.handle(Future.failedFuture(client.cause()));
+          }
+        });
   }
 
   private void computeEvaluation(WebClient webClient, Handler<AsyncResult<Double>> resultHandler) {
@@ -70,10 +77,21 @@ public class PortfolioServiceImpl implements PortfolioService {
     // Create the future object that will  get the value once the value have been retrieved
     Future<Double> future = Future.future();
 
-    //TODO
-    //----
-
-    // ---
+    client
+        .get("/?" + encode(company)).as(BodyCodec.jsonObject())
+        .send(ar -> {
+              if (ar.succeeded()) {
+                final HttpResponse<JsonObject> response = ar.result();
+                if (response.statusCode() == 200) {
+                  future.complete(numberOfShares * response.body().getDouble("bid"));
+                } else {
+                  future.complete(0.0);
+                }
+              } else {
+                future.fail(ar.cause());
+              }
+            }
+        );
 
     return future;
   }
